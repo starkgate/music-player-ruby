@@ -1,13 +1,14 @@
-# music-player-ruby
+# Ruby Music Player
 Command line only music player
 
 **Introduction**
 
-CLI-only Ruby script to quickly create and run a playlist. I couldn't find something that corresponded to what I wanted (tried mpg123 and a few others), so I made my own. Uses sox to run the music.
+CLI-only Ruby script to quickly create and run a playlist. I couldn't find something that corresponded to what I wanted (tried mpg123 and a few others), so I made my own. Uses sox to play the music.
 
 **Requirements**
 
-Ruby 2.4+ on either Linux or Windows.
+- Ruby 2.4+ on either Linux or Windows.
+- sox and libraries to read the audio files : `sudo apt install sox libsox-fmt-mp3`
 
 **Usage**
 
