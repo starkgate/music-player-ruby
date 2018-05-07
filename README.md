@@ -13,11 +13,11 @@ Ruby 2.4+ on either Linux or Windows.
 
 First open the script file and edit the music_dir variable to point to your own music's path.
 
-`Usage: music [options]
+```Usage: music [options]
     -n, --name NAME                  Search for keywords
     -f, --file                       Search for files (default folders)
     -r, --rand                       Shuffle the playlist
-    -h, --help                       Prints this help`
+    -h, --help                       Prints this help```
 
 Example: `music -nChopin -r`
 
