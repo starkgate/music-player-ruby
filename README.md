@@ -12,7 +12,7 @@ CLI-only Ruby script to quickly create and run a playlist. I couldn't find somet
 
 **Usage**
 
-First open the script file and edit the music_dir variable to point to your own music's path.
+First open the script file and edit the music_dir variable to point to your own music's path. Then run the script itself with `ruby music.rb`. Or put it in your `/usr/bin` folder and just type `music`. By default this will start playing your entire library in a playlist :). If you want more options (why ?), see below !
 
 ```
 Usage: music [options]
