@@ -105,16 +105,17 @@ neg = 1
 end
 
 while(run)
+  system("clear")
+  printf "[MUSIC][PLAY] Press h to see the keyboard shortcuts\n\r"
+  song_length = `soxi -d '#{@songs[0]}'`.slice(3..-5).chomp
+  printf "Playing #{@song_names[0].lstrip.chomp.chomp} (#{song_length}) of #{length} songs\n\r\n\r\n\r"
+
+  # print only the surrounding 25 songs at most
+  printf @song_names[-12..-1].join
+  print "[PLAY]#{@song_names[0]}"
+  printf @song_names[1..12].join # remove leading path, keep only filenames of songs
+
   @current_song = Thread.new do
-    system("clear")
-    printf "[MUSIC][PLAY] Press h to see the keyboard shortcuts\n\r"
-    printf "Playing #{@song_names[0].lstrip}\n\r\n\r"
-
-    # print only the surrounding 25 songs at most
-    printf @song_names[-12..-1].join
-    print "[PLAY]#{@song_names[0]}"
-    printf @song_names[1..12].join # remove leading path, keep only filenames of songs
-
     system("play -q '#{@songs[0]}'")
   end
   @current_song.join
