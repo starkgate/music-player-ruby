@@ -116,12 +116,14 @@ while(run)
   printf "Playing #{@song_names[0].lstrip.chomp.chomp} (#{song_length}) of #{length} songs\n\r\n\r\n\r"
 
   # print only the surrounding 25 songs at most
-  printf @song_names[-12..-1].join
+  prev = @song_names[-12..-1]
+  printf prev.join if prev != nil
   print "[PLAY]#{@song_names[0]}"
   printf @song_names[1..12].join # remove leading path, keep only filenames of songs
 
   @current_song = Thread.new do
-    system("play -V1 -q '#{@songs[0]}'")
+    str = '"' + @songs[0] + '"' # sanitize string
+    system("play -V1 -q #{str}")
   end
   @current_song.join
   rotateSongs 1
