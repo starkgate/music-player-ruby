@@ -121,7 +121,6 @@ while(run)
   printf @song_names[1..12].join # remove leading path, keep only filenames of songs
 
   @current_song = Thread.new do
-  	STDIN.echo = false
     system("play -V1 -q '#{@songs[0]}'")
   end
   @current_song.join
