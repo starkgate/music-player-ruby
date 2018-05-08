@@ -53,6 +53,11 @@ puts "[MUSIC][PLAY] Playing the following #{@songs.length} songs in #{options[:r
 @songs.shuffle! if options[:rand]
 @song_names = @songs.map{|song| "\t" + song.gsub(/^.*\//, "") + "\n\r"}
 
+run = true
+neg = 1
+@cmd = ["STOP", "CONT"]
+@toggle = 0
+
 def rotateSongs n
   @songs.rotate! n
   @song_names.rotate! n
@@ -72,10 +77,11 @@ def jumpSong x
   nextSong
 end
 
-run = true
-neg = 1
-cmd = ["STOP", "CONT"]
-toggle = 0
+def pauseSong
+  system("kill -#{@cmd[@toggle]} #{`pidof play`}")
+  @toggle = 1 - @toggle
+end
+
 @user_input = Thread.new do
   while(true)
     input = STDIN.getch
@@ -86,33 +92,35 @@ toggle = 0
 
     case input
     when " "
-    	system("kill -#{cmd[toggle]} #{`pidof play`}")
-    	toggle = 1 - toggle
+	  pauseSong
     when "-"
       neg *= -1
     when "\e[B", "\e[C", 'n', "1"
       nextSong
     when "\e[A", "\e[D", 'p'
       prevSong
+    when 'r'
+      jumpSong 0
     when 'h'
-      printf "\n\t(h) This help\n\t(q) Exit program\n\t( ) Pause\n\t(p) Previous song\n\t(n) Next song\n\t[0-9] Jump x songs\n\t(-) Toggle jump direction\n\r"
+      printf "\n\t(h) This help\n\t( ) Pause\n\t(p) Previous song\n\t(r) Restart song\n\t(n) Next song\n\t[0-9] Jump x songs\n\t(-) Toggle jump direction\n\t(q) Exit program\n\r"
     when 'q'
       run = false
+      pauseSong if @toggle == 1
       system("kill #{`pidof play`}")
       Thread.exit
     when "2","3","4","5","6","7","8","9"
       jumpSong (input.to_i*neg)
-    end
     STDIN.echo = false
     sleep 0.2
     STDIN.echo = true
+    end
   end
 end
 
 while(run)
   system("clear")
   printf "[MUSIC][PLAY] Press h to see the keyboard shortcuts\n\r"
-  song_length = `soxi -d '#{@songs[0]}'`.slice(3..-5).chomp
+  song_length = `soxi -d "#{@songs[0]}"`.slice(3..-5).chomp
   printf "Playing #{@song_names[0].lstrip.chomp.chomp} (#{song_length}) of #{length} songs\n\r\n\r\n\r"
 
   # print only the surrounding 25 songs at most
@@ -122,7 +130,7 @@ while(run)
   printf @song_names[1..12].join # remove leading path, keep only filenames of songs
 
   @current_song = Thread.new do
-    str = '"' + @songs[0] + '"' # sanitize string
+  	str = '"' + @songs[0] + '"' # sanitize string
     system("play -V1 -q #{str}")
   end
   @current_song.join
