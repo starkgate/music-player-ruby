@@ -74,6 +74,8 @@ end
 
 run = true
 neg = 1
+cmd = ["STOP", "CONT"]
+toggle = 0
 @user_input = Thread.new do
   while(true)
     input = STDIN.getch
@@ -83,6 +85,9 @@ neg = 1
     end
 
     case input
+    when " "
+    	system("kill -#{cmd[toggle]} #{`pidof play`}")
+    	toggle = 1 - toggle
     when "-"
       neg *= -1
     when "\e[B", "\e[C", 'n', "1"
@@ -90,7 +95,7 @@ neg = 1
     when "\e[A", "\e[D", 'p'
       prevSong
     when 'h'
-      printf "\n\t(h) This help\n\t(q) Exit program\n\t(p) Previous song\n\t(n) Next song\n\t[0-9] Jump x songs\n\t(-) Toggle jump direction\n\r"
+      printf "\n\t(h) This help\n\t(q) Exit program\n\t( ) Pause\n\t(p) Previous song\n\t(n) Next song\n\t[0-9] Jump x songs\n\t(-) Toggle jump direction\n\r"
     when 'q'
       run = false
       system("kill #{`pidof play`}")
@@ -116,7 +121,8 @@ while(run)
   printf @song_names[1..12].join # remove leading path, keep only filenames of songs
 
   @current_song = Thread.new do
-    system("play -q '#{@songs[0]}'")
+  	STDIN.echo = false
+    system("play -V1 -q '#{@songs[0]}'")
   end
   @current_song.join
   rotateSongs 1
