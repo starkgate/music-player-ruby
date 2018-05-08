@@ -29,7 +29,7 @@ Will find the first folder with the word "Chopin" in it (not case sensitive), an
 **Features**
 
 - Dynamically displays the current state of the playlist.
-- Keyboard shortcuts to go to previous, next songs.
+- Keyboard shortcuts to pause, go to previous, next songs.
 - Lightweight.
 
 ![](http://imgur.com/RmieDJS.png)
