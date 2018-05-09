@@ -31,7 +31,7 @@ OptionParser.new do |opts|
 end.parse!
 
 Dir.chdir music_dir
-search = `find #{music_folders} -type #{options[:type]} -iname '*#{options[:name].gsub(/\s/, '*')}*'`
+search = `find #{music_folders} -type #{options[:type]} -iname '*#{options[:name].gsub(' ', '*')}*'`
 if search == ''
   puts '[MUSIC][SEARCH] Nothing found, try searching for something else'
   return
@@ -52,7 +52,7 @@ length = @songs.length
 puts "[MUSIC][PLAY] Playing the following #{length} songs in #{options[:rand] ? 'shuffle' : 'sequential'} mode"
 
 @songs.shuffle! if options[:rand]
-@song_names = @songs.map { |song| "\t" + song.gsub(/^.*\//, '') + "\n\r" }
+@song_names = @songs.map { |song| "\t#{song[song.rindex('/')+1..-1]}\n\r" }
 
 run = true
 neg = 1
@@ -128,7 +128,7 @@ while run
   prev = @song_names[-12..-1]
   printf prev.join unless prev.nil?
   print "[PLAY]#{@song_names[0]}"
-  printf @song_names[1..12].join # remove leading path, keep only filenames of songs
+  printf @song_names[1..12].join
 
   @current_song = Thread.new do
     str = '"' + @songs[0] + '"' # sanitize string
