@@ -5,6 +5,11 @@ base64 -d <<< "ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBgICAgI
 
 volume=1
 if [ "$(whoami)" == "root" ]; then
-	$volume++
+	let volume++
 fi
-play -q -v $volume "path to yamato mp3"
+
+yamato="yamato.mp3"
+if [ $yamato does not exist ]; then
+	wget "http://67.159.62.2/anime_ost/uchu-senkan-yamato-makkana-scarf-op-1/msknfenn/01.%20Uchuu%20Senkan%20Yamato.mp3" $yamato
+fi
+play -v $volume $yamato
