@@ -8,8 +8,10 @@ if [ "$(whoami)" == "root" ]; then
 	let volume++
 fi
 
-yamato="yamato.mp3"
-if [ $yamato does not exist ]; then
-	wget "http://67.159.62.2/anime_ost/uchu-senkan-yamato-makkana-scarf-op-1/msknfenn/01.%20Uchuu%20Senkan%20Yamato.mp3" $yamato
+cd ~/Downloads
+yamato=yamato.mp3
+if [ ! -f "$yamato" ]; then
+	wget "http://67.159.62.2/anime_ost/uchu-senkan-yamato-makkana-scarf-op-1/msknfenn/01.%20Uchuu%20Senkan%20Yamato.mp3" -O "$yamato"
 fi
+
 play -v $volume $yamato
