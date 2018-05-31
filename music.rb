@@ -70,7 +70,6 @@ class MusicPlayer
   end
 
   def search_songs
-    dir = @music_dir
   	if @options[:type] == 'd'
         cmd = "find '#{@music_dir}'"
         cmd += @exclusions
@@ -82,15 +81,20 @@ class MusicPlayer
           puts '[MUSIC][SEARCH] Nothing found, try searching for something else'
           return
         end
-  	end
 
-    cmd = "find '#{dir}'"
-    cmd += @exclusions
-    cmd += " -type f -iname '*.mp3' -o -iname '*.flac'"
+        cmd = "find '#{dir}'"
+        cmd += @exclusions
+        cmd += " -type f -iname '*.mp3' -o -iname '*.flac'"
+  	else
+  	    cmd = "find '#{@music_dir}'"
+        cmd += @exclusions
+        cmd += " -type f \\\( -iname '*.mp3' -o -iname '*.flac' \\\) -a -iname '*#{@options[:name].tr(' ', '*')}*'"
+  	end
 
     puts "[MUSIC][SEARCH] Found'em ! Queuing..."
 
     @songs = `#{cmd}`.split(/\n/)
+
     if @songs.empty?
       puts '[MUSIC][SEARCH] Nothing found, try searching for something else'
       return
