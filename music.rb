@@ -74,7 +74,6 @@ class MusicPlayer
         cmd = "find '#{@music_dir}'"
         cmd += @exclusions
         cmd += " -type d -iname '*#{@options[:name].tr(' ', '*')}*' -print -quit"
-
         dir = `#{cmd}`.chomp
 
         if dir.empty?
@@ -91,30 +90,28 @@ class MusicPlayer
         cmd += " -type f \\\( -iname '*.mp3' -o -iname '*.flac' \\\) -a -iname '*#{@options[:name].tr(' ', '*')}*'"
   	end
 
-    puts "[MUSIC][SEARCH] Found'em ! Queuing..."
-
     @songs = `#{cmd}`.split(/\n/)
-
     if @songs.empty?
       puts '[MUSIC][SEARCH] Nothing found, try searching for something else'
       return
     end
 
     @length = @songs.length
+    puts "[MUSIC][SEARCH] Found'em ! Queuing..."
     puts "[MUSIC][PLAY] Playing the following #{@length} songs in #{@options[:rand] ? 'shuffle' : 'sequential'} mode"
   end
 
   def format_songs
     @songs.shuffle! if @options[:rand]
-    @song_names = @songs.map { |song| "\t#{song[song.rindex('/')+1..-1]}".ljust(@size_x - 2) + "\r" } # adjust song names for terminal size
+    @song_names = @songs.map { |song| "\t#{song[song.rindex('/')+1..-1]}"[0..@size_x-2].ljust(@size_x - 2) + "\r" } # adjust song names for terminal size
   end
 
   def play_songs
-  	offset = @size_x - 6
+  	offset = @size_x - 5
     while @run
       string = "\"[MUSIC][PLAY] Press h to see the keyboard shortcuts\n\r"
-      song_length = `soxi -d "#{@songs[0]}"`.slice(3..-5).chomp
-      string += "Playing #{@songs[0][@songs[0].rindex('/')+1..-1]} (#{song_length}) of #{@length} songs".ljust(offset)[0..offset-1] + "\n\r\n\r\n\r"
+      song_length = `soxi -d "#{@songs[0]}"`[3..-5].chomp
+      string += "Playing #{@song_names[0].chomp.chomp.strip[0..@size_x-37]} (#{song_length}) of #{@length} songs".ljust(offset) + "\n\r\n\r\n\r"
 
       # print only the surrounding 25 songs at most
       prev = @song_names[-12..-1]
