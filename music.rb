@@ -1,139 +1,210 @@
 #!/usr/bin/ruby
 
+# TODO http://beets.readthedocs.io/en/v1.4.6/plugins/play.html
+# http://beets.readthedocs.io/en/v1.4.6/plugins/lyrics.html
+# http://beets.readthedocs.io/en/v1.4.6/plugins/chroma.html
+# http://docs.puddletag.net/download.html
+
+# possibly best https://github.com/spotify/echoprint-codegen
+
 require 'optparse'
 require 'io/console'
 require 'thread'
 
-music_dir = "PUT WHATEVER YOU LIKE HERE"
-# in case you only want specific folders to be scanned in your music directory
-music_folders = ""
+class MusicPlayer
 
-options = { name: '', type: 'd', rand: false }
-OptionParser.new do |opts|
-  opts.banner = 'Usage: music [options]'
+  def initialize
+	  @music_dir = 'Whatever you want'
+	  @exclusions = ['$RECYCLE.BIN', 'System Volume Information']
+		                .map{|e| " -not \\\( -path '#{@music_dir  + '/' + e}' -prune \\\)"}.join # format for find cmd
+	  @size_x = 90
+	  @size_y = 39
 
-  opts.on('-nNAME', '--name NAME', 'Search for keywords') do |name|
-    options[:name] = name
+	  @help = "\"\n\r\t(h) This help\n\r\t( ) Pause\n\r\t(p) Previous song\n\r\t(r) Restart song\n\r\t(n) Next song\n\r\t[0-9] Jump x songs\n\r\t(-) Toggle jump direction\n\r\t(q) Exit program\n\r\""
+	  @length = @help.count("\n")
+	  @blank = "\"#{(' ' * @size_x + "\n\r") * @length}\""
+
+	  @cmd = %w[STOP CONT]
+	  @toggle_pause = 0
+	  @toggle_help = 1
+    get_options
+
+    Dir.chdir @music_dir
+    system("printf '\e[8;#{@size_y};#{@size_x}t'") # set terminal size (40 rows, 80 columns)
+    system('clear')
+    system("printf '\e[?25l'") # hide cursor
+
+    search_songs
+    format_songs
+    user_input
+    play_songs
   end
 
-  opts.on('-f', '--file', 'Search for files (default folders)') do |name|
-    options[:type] = 'f'
+  def get_options
+    @options = { name: '', type: 'd', rand: false, saga: false }
+    OptionParser.new do |opts|
+      begin
+        opts.banner = 'Usage: music [@options]'
+
+        opts.on('-nNAME', '--name NAME', 'Search for keywords') do |name|
+          @options[:name] = name
+        end
+
+        opts.on('-f', '--file', 'Search for files (default folders)') do
+          @options[:type] = 'f'
+        end
+
+        opts.on('-r', '--rand', 'Shuffle the playlist') do
+          @options[:rand] = true
+        end
+
+        opts.on('-h', '--help', 'Prints this help') do
+          puts opts
+          exit
+        end
+      rescue OptionParser::InvalidOption
+        puts opts
+        exit
+      end
+    end.parse!
   end
 
-  opts.on('-r', '--rand', 'Shuffle the playlist') do |name|
-    options[:rand] = true
-  end
+  def search_songs
+    dir = @music_dir
+  	if @options[:type] == 'd'
+        cmd = "find '#{@music_dir}'"
+        cmd += @exclusions
+        cmd += " -type d -iname '*#{@options[:name].tr(' ', '*')}*' -print -quit"
 
-  opts.on('-h', '--help', 'Prints this help') do
-    puts opts
-    exit
-  end
-end.parse!
+        dir = `#{cmd}`.chomp
 
-Dir.chdir music_dir
-search = `find #{music_folders} -type #{options[:type]} -iname '*#{options[:name].gsub(' ', '*')}*'`
-if search == ''
-  puts '[MUSIC][SEARCH] Nothing found, try searching for something else'
-  return
-else
-  puts "[MUSIC][SEARCH] Found'em ! Queuing..."
-end
+        if dir.empty?
+          puts '[MUSIC][SEARCH] Nothing found, try searching for something else'
+          return
+        end
+  	end
 
-@songs = search.split(/\n/)
-if options[:type] == 'd'
-  if options[:name] == ''
-    play = music_folders # entire library
-  else
-    play = @songs[0]
-  end
-  @songs = `find '#{play}' -type f -iname '*.mp3' -o -iname '*.flac'`.split(/\n/)
-end
-length = @songs.length
-puts "[MUSIC][PLAY] Playing the following #{length} songs in #{options[:rand] ? 'shuffle' : 'sequential'} mode"
+    cmd = "find '#{dir}'"
+    cmd += @exclusions
+    cmd += " -type f -iname '*.mp3' -o -iname '*.flac'"
 
-@songs.shuffle! if options[:rand]
-@song_names = @songs.map { |song| "\t#{song[song.rindex('/')+1..-1]}\n\r" }
+    puts "[MUSIC][SEARCH] Found'em ! Queuing..."
 
-run = true
-neg = 1
-@cmd = %w[STOP CONT]
-@toggle = 0
-
-def rotateSongs n
-  @songs.rotate! n
-  @song_names.rotate! n
-end
-
-def nextSong
-  system("kill #{`pidof play`}")
-end
-
-def prevSong
-  rotateSongs -2
-  system("kill #{`pidof play`}")
-end
-
-def jumpSong x
-  rotateSongs (x - 1)
-  nextSong
-end
-
-def pauseSong
-  system("kill -#{@cmd[@toggle]} #{`pidof play`}")
-  @toggle = 1 - @toggle
-end
-
-@user_input = Thread.new do
-  loop do
-    input = STDIN.getch
-    if input == "\e"
-      input << STDIN.read_nonblock(3) rescue nil
-      input << STDIN.read_nonblock(2) rescue nil
+    @songs = `#{cmd}`.split(/\n/)
+    if @songs.empty?
+      puts '[MUSIC][SEARCH] Nothing found, try searching for something else'
+      return
     end
 
-    case input
-    when ' '
-      pauseSong
-    when '-'
-      neg *= -1
-    when "\e[B", "\e[C", 'n', '1'
-      nextSong
-    when "\e[A", "\e[D", 'p'
-      prevSong
-    when 'r'
-      jumpSong 0
-    when 'h'
-      printf "\n\t(h) This help\n\t( ) Pause\n\t(p) Previous song\n\t(r) Restart song\n\t(n) Next song\n\t[0-9] Jump x songs\n\t(-) Toggle jump direction\n\t(q) Exit program\n\r"
-    when 'q'
-      run = false
-      pauseSong if @toggle == 1
-      system("kill #{`pidof play`}")
-      Thread.exit
-    when '2', '3', '4', '5', '6', '7', '8', '9'
-      jumpSong (input.to_i * neg)
-      STDIN.echo = false
-      sleep 0.2
-      STDIN.echo = true
+    @length = @songs.length
+    puts "[MUSIC][PLAY] Playing the following #{@length} songs in #{@options[:rand] ? 'shuffle' : 'sequential'} mode"
+  end
+
+  def format_songs
+    @songs.shuffle! if @options[:rand]
+    @song_names = @songs.map { |song| "\t#{song[song.rindex('/')+1..-1]}".ljust(@size_x - 2) + "\r" } # adjust song names for terminal size
+  end
+
+  def play_songs
+  	offset = @size_x - 6
+    while @run
+      string = "\"[MUSIC][PLAY] Press h to see the keyboard shortcuts\n\r"
+      song_length = `soxi -d "#{@songs[0]}"`.slice(3..-5).chomp
+      string += "Playing #{@songs[0][@songs[0].rindex('/')+1..-1]} (#{song_length}) of #{@length} songs".ljust(offset)[0..offset-1] + "\n\r\n\r\n\r"
+
+      # print only the surrounding 25 songs at most
+      prev = @song_names[-12..-1]
+      string += prev.join unless prev.nil?
+      string += "[PLAY]#{@song_names[0]}"
+      string += @song_names[1..12].join + '"'
+      system("printf '\033[;H'") # place cursor at top
+      system("printf #{string}") # print
+
+      @current_song = Thread.new do
+        str = '"' + @songs[0] + '"' # sanitize string
+        system("play -V1 -q #{str}")
+      end
+
+      @current_song.join
+      rotate_songs 1
     end
   end
-end
 
-while run
-  system('clear')
-  printf "[MUSIC][PLAY] Press h to see the keyboard shortcuts\n\r"
-  song_length = `soxi -d "#{@songs[0]}"`.slice(3..-5).chomp
-  printf "Playing #{@song_names[0].lstrip.chomp.chomp} (#{song_length}) of #{length} songs\n\r\n\r\n\r"
+  def user_input
+    @run = true
+    neg = 1
+    @user_input = Thread.new do
+      loop do
+        input = STDIN.getch
+        if input == "\e"
+          input << STDIN.read_nonblock(3) rescue nil
+          input << STDIN.read_nonblock(2) rescue nil
+        end
 
-  # print only the surrounding 25 songs at most
-  prev = @song_names[-12..-1]
-  printf prev.join unless prev.nil?
-  print "[PLAY]#{@song_names[0]}"
-  printf @song_names[1..12].join
-
-  @current_song = Thread.new do
-    str = '"' + @songs[0] + '"' # sanitize string
-    system("play -V1 -q #{str}")
+        case input
+        when ' '
+          pause_song
+        when '-'
+          neg *= -1
+        when "\e[B", "\e[C", 'n', '1'
+          next_song
+        when "\e[A", "\e[D", 'p'
+          prev_song
+        when 'r'
+          jumpSong 0
+        when 'h'
+          toggle_help
+        when 'q'
+          @run = false
+          pause_song if @toggle == 1
+          system("kill #{`pidof play`}")
+          system('clear')
+          system("printf '\u001B[?25h'") # show cursor
+          Thread.exit
+        when '2', '3', '4', '5', '6', '7', '8', '9'
+          jumpSong (input.to_i * neg)
+        end
+      end
+    end
   end
-  @current_song.join
-  rotateSongs 1
+
+  # ACTIONS
+  def rotate_songs n
+    @songs.rotate! n
+    @song_names.rotate! n
+  end
+
+  def next_song
+  	@current_song.kill
+  	system("kill #{`pidof play`.chomp} > /dev/null")
+  end
+
+  def prev_song
+    rotate_songs -2
+    @current_song.kill
+    system("kill #{`pidof play`.chomp} > /dev/null")
+  end
+
+  def jumpSong x
+    rotate_songs (x - 1)
+    next_song
+  end
+
+  def pause_song
+    system("kill -#{@cmd[@toggle_pause]} #{`pidof play`.chomp} &> /dev/null")
+    @toggle_pause = 1 - @toggle_pause
+  end
+
+  def toggle_help
+    system("printf '\033[s'")
+    if @toggle_help == 1
+      system("printf #{@help}")
+    else
+      system("printf #{@blank}")
+    end
+    system("printf '\033[u'")
+    @toggle_help = 1 - @toggle_help
+  end
 end
+
+MusicPlayer.new
