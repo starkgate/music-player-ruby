@@ -103,7 +103,7 @@ class MusicPlayer
 
   def format_songs
     @songs.shuffle! if @options[:rand]
-    @song_names = @songs.map { |song| "\t#{song[song.rindex('/')+1..-1]}"[0..@size_x-2].ljust(@size_x - 2) + "\r" } # adjust song names for terminal size
+    @song_names = @songs.map { |song| "\t#{song[song.rindex('/')+1..-1]}"[0..@size_x-10].ljust(@size_x - 2) + "\r" } # adjust song names for terminal size
   end
 
   def play_songs
