@@ -157,7 +157,7 @@ class MusicPlayer
           toggle_help
         when 'q'
           @run = false
-          pause_song if @toggle == 1
+          pause_song if @toggle_pause == 1
           system("kill #{`pidof play`}")
           system('clear')
           system("printf '\u001B[?25h'") # show cursor
@@ -192,8 +192,8 @@ class MusicPlayer
   end
 
   def pause_song
-    system("kill -#{@cmd[@toggle_pause]} #{`pidof play`.chomp} &> /dev/null")
-    @toggle_pause = 1 - @toggle_pause
+    system("kill -#{@cmd[@toggle_pause]} #{`pidof play`.chomp} > /dev/null")
+    @toggle_pause ^= 1
   end
 
   def toggle_help
@@ -204,7 +204,7 @@ class MusicPlayer
       system("printf #{@blank}")
     end
     system("printf '\033[u'")
-    @toggle_help = 1 - @toggle_help
+    @toggle_help ^= 1
   end
 end
 
