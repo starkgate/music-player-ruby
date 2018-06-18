@@ -17,7 +17,7 @@ class MusicPlayer
 	  @music_dir = 'Whatever you want'
 	  @exclusions = ['$RECYCLE.BIN', 'System Volume Information']
 		                .map{|e| " -not \\\( -path '#{@music_dir  + '/' + e}' -prune \\\)"}.join # format for find cmd
-	  @size_x = 90
+	  @size_x = 80
 	  @size_y = 39
 
 	  @help = "\"\n\r\t(h) This help\n\r\t( ) Pause\n\r\t(p) Previous song\n\r\t(r) Restart song\n\r\t(n) Next song\n\r\t[0-9] Jump x songs\n\r\t(-) Toggle jump direction\n\r\t(q) Exit program\n\r\""
@@ -34,14 +34,24 @@ class MusicPlayer
     system('clear')
     system("printf '\e[?25l'") # hide cursor
 
-    search_songs
+    if @options[:list]
+    	search_stuff
+    else
+		search_songs
+    end
+
     format_songs
     user_input
-    play_songs
+
+    if @options[:list]
+    	print_stuff
+    else
+    	play_songs
+    end
   end
 
   def get_options
-    @options = { name: '', type: 'd', rand: false, saga: false }
+    @options = { name: '', type: 'd', rand: false, saga: false, list: false }
     OptionParser.new do |opts|
       begin
         opts.banner = 'Usage: music [@options]'
@@ -56,6 +66,10 @@ class MusicPlayer
 
         opts.on('-r', '--rand', 'Shuffle the playlist') do
           @options[:rand] = true
+        end
+
+        opts.on('-l', '--list', 'Only lists corresponding files') do
+          @options[:list] = true
         end
 
         opts.on('-h', '--help', 'Prints this help') do
@@ -90,7 +104,7 @@ class MusicPlayer
         cmd += " -type f \\\( -iname '*.mp3' -o -iname '*.flac' \\\) -a -iname '*#{@options[:name].tr(' ', '*')}*'"
   	end
 
-    @songs = `#{cmd}`.split(/\n/)
+    @songs = `#{cmd}`.split(/\n/) # if list, display directories
     if @songs.empty?
       puts '[MUSIC][SEARCH] Nothing found, try searching for something else'
       return
@@ -98,12 +112,65 @@ class MusicPlayer
 
     @length = @songs.length
     puts "[MUSIC][SEARCH] Found'em ! Queuing..."
-    puts "[MUSIC][PLAY] Playing the following #{@length} songs in #{@options[:rand] ? 'shuffle' : 'sequential'} mode"
+    puts "[MUSIC][PLAY] Playing the following #{@length} songs in #{@options[:rand] ? 'shuffle' : 'sequential'} mode" unless @options[:list]
   end
 
   def format_songs
     @songs.shuffle! if @options[:rand]
     @song_names = @songs.map { |song| "\t#{song[song.rindex('/')+1..-1]}"[0..@size_x-10].ljust(@size_x - 2) + "\r" } # adjust song names for terminal size
+  end
+
+  def search_stuff
+    cmd = "find '#{@music_dir}'"
+    cmd += @exclusions
+
+  	if @options[:type] == 'd'
+        cmd += " -type d -iname '*#{@options[:name].tr(' ', '*')}*' -print -quit"
+
+  		dir = `#{cmd}`.chomp
+
+        if dir.empty?
+          puts '[MUSIC][SEARCH] Nothing found, try searching for something else'
+          return
+        end
+
+        cmd = "find '#{dir}' -maxdepth 1"
+        cmd += @exclusions
+        cmd += " -type d"
+  	else
+        cmd += " -type f \\\( -iname '*.mp3' -o -iname '*.flac' \\\) -a -iname '*#{@options[:name].tr(' ', '*')}*'"
+  	end
+
+    @songs = `#{cmd}`.split(/\n/) # if list, display directories
+    if @songs.empty?
+      puts '[MUSIC][SEARCH] Nothing found, try searching for something else'
+      return
+    end
+
+    @length = @songs.length
+    puts "[MUSIC][SEARCH] Found'em ! Queuing..."
+  end
+
+  def print_stuff
+  	offset = @size_x - 5
+    while @run
+      string = "\"[MUSIC][LIST] Press h to see the keyboard shortcuts\n\r\n\r\n\r"
+
+      # print only the surrounding 25 songs at most
+      prev = @song_names[-12..-1]
+      string += prev.join unless prev.nil?
+      string += "[HERE]#{@song_names[0]}"
+      string += @song_names[1..12].join + '"'
+      system("printf '\033[;H'") # place cursor at top
+      system("printf #{string}") # print
+
+      @current_song = Thread.new do
+        system("sleep 1000")
+      end
+
+      @current_song.join
+      rotate_songs 1
+    end
   end
 
   def play_songs
