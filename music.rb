@@ -1,6 +1,6 @@
 #!/usr/bin/ruby
 
-# TODO http://beets.readthedocs.io/en/v1.4.6/plugins/play.html
+# http://beets.readthedocs.io/en/v1.4.6/plugins/play.html
 # http://beets.readthedocs.io/en/v1.4.6/plugins/lyrics.html
 # http://beets.readthedocs.io/en/v1.4.6/plugins/chroma.html
 # http://docs.puddletag.net/download.html
@@ -12,11 +12,10 @@ require 'io/console'
 require 'thread'
 
 class MusicPlayer
-
-  def initialize manual
+  def initialize
     @music_dir = 'Whatever you want'
     @exclusions = ['$RECYCLE.BIN', 'System Volume Information']
-	                .map{|e| " -not \\\( -path '#{@music_dir  + '/' + e}' -prune \\\)"}.join # format for find cmd
+                  .map { |e| " -not \\( -path '#{@music_dir + '/' + e}' -prune \\)" }.join # format for find cmd
     @size_x = 80
     @size_y = 39
 
@@ -24,11 +23,11 @@ class MusicPlayer
     @length = @help.count("\n")
     @blank = "\"#{(' ' * @size_x + "\n\r") * @length}\""
 
-	@run = true
+    @run = true
     @cmd = %w[STOP CONT]
     @toggle_pause = 0
     @toggle_help = 1
-    get_options unless manual
+    get_options
 
     Dir.chdir @music_dir
     system("printf '\e[8;#{@size_y};#{@size_x}t'") # set terminal size (40 rows, 80 columns)
@@ -36,23 +35,23 @@ class MusicPlayer
     system("printf '\e[?25l'") # hide cursor
 
     if @options[:list]
-    	search_stuff
+      search_stuff
     else
-		search_songs
+      search_songs
     end
 
     format_songs
     user_input
 
     if @options[:list]
-    	print_stuff
+      print_stuff
     else
-    	play_songs
+      play_songs
     end
   end
 
   def get_options
-    @options = { name: "", type: 'd', rand: false, saga: false, list: false }
+    @options = { name: '', type: 'd', rand: false, saga: false, list: false }
     OptionParser.new do |opts|
       begin
         opts.banner = 'Usage: music [@options]'
@@ -91,25 +90,24 @@ class MusicPlayer
   end
 
   def search_songs
-  	if @options[:type] == 'd'
-        cmd = "find '#{@music_dir}'"
-        cmd += @exclusions
-        cmd += " -type d -iname '*#{@options[:name].tr(' ', '*')}*' -print -quit"
-        dir = "\"" + `#{cmd}`.chomp + "\""
+    cmd = "find '#{@music_dir}'"
+    cmd += @exclusions
 
-        if dir.empty?
-          puts '[MUSIC][SEARCH] Nothing found, try searching for something else'
-          abort
-        end
+    if @options[:type] == 'd'
+      cmd += " -type d -iname '*#{@options[:name].tr(' ', '*')}*' -print -quit"
+      dir = '"' + `#{cmd}`.chomp + '"'
 
-        cmd = "find #{dir}"
-        cmd += @exclusions
-        cmd += " -type f -iname '*.mp3' -o -iname '*.flac'"
-  	else
-  	    cmd = "find '#{@music_dir}'"
-        cmd += @exclusions
-        cmd += " -type f \\\( -iname '*.mp3' -o -iname '*.flac' \\\) -a -iname '*#{@options[:name].tr(' ', '*')}*'"
-  	end
+      if dir.empty?
+        puts '[MUSIC][SEARCH] Nothing found, try searching for something else'
+        abort
+      end
+
+      cmd = "find #{dir}"
+      cmd += @exclusions
+      cmd += " -type f -iname '*.mp3' -o -iname '*.flac'"
+    else
+      cmd += " -type f \\( -iname '*.mp3' -o -iname '*.flac' \\) -a -iname '*#{@options[:name].tr(' ', '*')}*'"
+    end
 
     @songs = `#{cmd}`.split(/\n/) # if list, display directories
     if @songs.empty?
@@ -124,29 +122,29 @@ class MusicPlayer
 
   def format_songs
     @songs.shuffle! if @options[:rand]
-    @song_names = @songs.map { |song| "\t#{song[song.rindex('/')+1..-1]}"[0..@size_x-10].ljust(@size_x - 2) + "\r" } # adjust song names for terminal size
+    @song_names = @songs.map { |song| "\t#{song[song.rindex('/') + 1..-1]}"[0..@size_x - 10].ljust(@size_x - 2) + "\r" } # adjust song names for terminal size
   end
 
   def search_stuff
     cmd = "find '#{@music_dir}'"
     cmd += @exclusions
 
-  	if @options[:type] == 'd'
-        cmd += " -type d -iname '*#{@options[:name].tr(' ', '*')}*' -print -quit"
+    if @options[:type] == 'd'
+      cmd += " -type d -iname '*#{@options[:name].tr(' ', '*')}*' -print -quit"
 
-  		dir = "\"" + `#{cmd}`.chomp + "\""
+      dir = '"' + `#{cmd}`.chomp + '"'
 
-        if dir.empty?
-          puts '[MUSIC][SEARCH] Nothing found, try searching for something else'
-          abort
-        end
+      if dir.empty?
+        puts '[MUSIC][SEARCH] Nothing found, try searching for something else'
+        abort
+      end
 
-        cmd = "find #{dir} -maxdepth 1"
-        cmd += @exclusions
-        cmd += " -type d"
-  	else
-        cmd += " -type f \\\( -iname '*.mp3' -o -iname '*.flac' \\\) -a -iname '*#{@options[:name].tr(' ', '*')}*'"
-  	end
+      cmd = "find #{dir} -maxdepth 1"
+      cmd += @exclusions
+      cmd += ' -type d'
+    else
+      cmd += " -type f \\( -iname '*.mp3' -o -iname '*.flac' \\) -a -iname '*#{@options[:name].tr(' ', '*')}*'"
+    end
 
     @songs = `#{cmd}`.split(/\n/) # if list, display directories
     if @songs.empty?
@@ -159,7 +157,6 @@ class MusicPlayer
   end
 
   def print_stuff
-  	offset = @size_x - 5
     while @run
       string = "\"[MUSIC][LIST] Press h to see the keyboard shortcuts\n\r\n\r\n\r"
 
@@ -172,7 +169,7 @@ class MusicPlayer
       system("printf #{string}") # print
 
       @current_song = Thread.new do
-        system("sleep 1000")
+        system('sleep 1000')
       end
 
       @current_song.join
@@ -181,11 +178,11 @@ class MusicPlayer
   end
 
   def play_songs
-  	offset = @size_x - 5
+    offset = @size_x - 5
     while @run
       string = "\"[MUSIC][PLAY] Press h to see the keyboard shortcuts\n\r"
       song_length = `soxi -d "#{@songs[0]}"`[3..-5].chomp
-      string += "Playing #{@song_names[0].strip[0..@size_x-37]} (#{song_length}) of #{@length} songs".ljust(offset) + "\n\r\n\r\n\r"
+      string += "Playing #{@song_names[0].strip[0..@size_x - 37]} (#{song_length}) of #{@length} songs".ljust(offset) + "\n\r\n\r\n\r"
 
       # print only the surrounding 25 songs at most
       prev = @song_names[-12..-1]
@@ -217,7 +214,6 @@ class MusicPlayer
           input << STDIN.read_nonblock(2) rescue nil
         end
 
-		# TODO : figure out why sleep isn't killed after q or r in list mode
         case input
         when ' '
           pause_song unless @options[:list]
@@ -235,7 +231,7 @@ class MusicPlayer
             system("music -n#{new_name}#{@options[:rand] ? ' -r' : ''}")
             abort
           else
-            jumpSong 0
+            jump_song 0
           end
         when 'h'
           toggle_help
@@ -247,7 +243,7 @@ class MusicPlayer
           system("printf '\u001B[?25h'") # show cursor
           Thread.exit
         when '2', '3', '4', '5', '6', '7', '8', '9'
-          jumpSong (input.to_i * neg)
+          jump_song (input.to_i * neg)
         end
       end
     end
@@ -260,16 +256,16 @@ class MusicPlayer
   end
 
   def kill_song
-  	if @options[:list]
-	  system("kill #{`pidof sleep`.chomp} > /dev/null")
-	else
-	  system("kill #{`pidof play`.chomp} > /dev/null")
+    if @options[:list]
+      system("kill #{`pidof sleep`.chomp} > /dev/null")
+    else
+      system("kill #{`pidof play`.chomp} > /dev/null")
     end
     @current_song.kill
   end
 
   def next_song
-  	kill_song
+    kill_song
   end
 
   def prev_song
@@ -277,7 +273,7 @@ class MusicPlayer
     next_song
   end
 
-  def jumpSong x
+  def jump_song x
     rotate_songs (x - 1)
     next_song
   end
@@ -299,4 +295,4 @@ class MusicPlayer
   end
 end
 
-MusicPlayer.new false
+MusicPlayer.new
