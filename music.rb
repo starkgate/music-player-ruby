@@ -13,21 +13,22 @@ require 'thread'
 
 class MusicPlayer
 
-  def initialize
-	  @music_dir = 'Whatever you want'
-	  @exclusions = ['$RECYCLE.BIN', 'System Volume Information']
-		                .map{|e| " -not \\\( -path '#{@music_dir  + '/' + e}' -prune \\\)"}.join # format for find cmd
-	  @size_x = 80
-	  @size_y = 39
+  def initialize manual
+    @music_dir = 'Whatever you want'
+    @exclusions = ['$RECYCLE.BIN', 'System Volume Information']
+	                .map{|e| " -not \\\( -path '#{@music_dir  + '/' + e}' -prune \\\)"}.join # format for find cmd
+    @size_x = 80
+    @size_y = 39
 
-	  @help = "\"\n\r\t(h) This help\n\r\t( ) Pause\n\r\t(p) Previous song\n\r\t(r) Restart song\n\r\t(n) Next song\n\r\t[0-9] Jump x songs\n\r\t(-) Toggle jump direction\n\r\t(q) Exit program\n\r\""
-	  @length = @help.count("\n")
-	  @blank = "\"#{(' ' * @size_x + "\n\r") * @length}\""
+    @help = "\"\n\r\t(h) This help\n\r\t( ) Pause\n\r\t(p) Previous song\n\r\t(r) Restart song\n\r\t(n) Next song\n\r\t[0-9] Jump x songs\n\r\t(-) Toggle jump direction\n\r\t(q) Exit program\n\r\""
+    @length = @help.count("\n")
+    @blank = "\"#{(' ' * @size_x + "\n\r") * @length}\""
 
-	  @cmd = %w[STOP CONT]
-	  @toggle_pause = 0
-	  @toggle_help = 1
-    get_options
+	@run = true
+    @cmd = %w[STOP CONT]
+    @toggle_pause = 0
+    @toggle_help = 1
+    get_options unless manual
 
     Dir.chdir @music_dir
     system("printf '\e[8;#{@size_y};#{@size_x}t'") # set terminal size (40 rows, 80 columns)
@@ -51,7 +52,7 @@ class MusicPlayer
   end
 
   def get_options
-    @options = { name: '', type: 'd', rand: false, saga: false, list: false }
+    @options = { name: "", type: 'd', rand: false, saga: false, list: false }
     OptionParser.new do |opts|
       begin
         opts.banner = 'Usage: music [@options]'
@@ -83,19 +84,25 @@ class MusicPlayer
     end.parse!
   end
 
+  def sanitize_filename(name)
+    name.gsub!(/^.*(\\|\/)/, '')
+    name.gsub!(/[^0-9A-Za-z.\-]/, ' ')
+    return name
+  end
+
   def search_songs
   	if @options[:type] == 'd'
         cmd = "find '#{@music_dir}'"
         cmd += @exclusions
         cmd += " -type d -iname '*#{@options[:name].tr(' ', '*')}*' -print -quit"
-        dir = `#{cmd}`.chomp
+        dir = "\"" + `#{cmd}`.chomp + "\""
 
         if dir.empty?
           puts '[MUSIC][SEARCH] Nothing found, try searching for something else'
-          return
+          abort
         end
 
-        cmd = "find '#{dir}'"
+        cmd = "find #{dir}"
         cmd += @exclusions
         cmd += " -type f -iname '*.mp3' -o -iname '*.flac'"
   	else
@@ -107,7 +114,7 @@ class MusicPlayer
     @songs = `#{cmd}`.split(/\n/) # if list, display directories
     if @songs.empty?
       puts '[MUSIC][SEARCH] Nothing found, try searching for something else'
-      return
+      abort
     end
 
     @length = @songs.length
@@ -127,14 +134,14 @@ class MusicPlayer
   	if @options[:type] == 'd'
         cmd += " -type d -iname '*#{@options[:name].tr(' ', '*')}*' -print -quit"
 
-  		dir = `#{cmd}`.chomp
+  		dir = "\"" + `#{cmd}`.chomp + "\""
 
         if dir.empty?
           puts '[MUSIC][SEARCH] Nothing found, try searching for something else'
-          return
+          abort
         end
 
-        cmd = "find '#{dir}' -maxdepth 1"
+        cmd = "find #{dir} -maxdepth 1"
         cmd += @exclusions
         cmd += " -type d"
   	else
@@ -144,7 +151,7 @@ class MusicPlayer
     @songs = `#{cmd}`.split(/\n/) # if list, display directories
     if @songs.empty?
       puts '[MUSIC][SEARCH] Nothing found, try searching for something else'
-      return
+      abort
     end
 
     @length = @songs.length
@@ -178,7 +185,7 @@ class MusicPlayer
     while @run
       string = "\"[MUSIC][PLAY] Press h to see the keyboard shortcuts\n\r"
       song_length = `soxi -d "#{@songs[0]}"`[3..-5].chomp
-      string += "Playing #{@song_names[0].chomp.chomp.strip[0..@size_x-37]} (#{song_length}) of #{@length} songs".ljust(offset) + "\n\r\n\r\n\r"
+      string += "Playing #{@song_names[0].strip[0..@size_x-37]} (#{song_length}) of #{@length} songs".ljust(offset) + "\n\r\n\r\n\r"
 
       # print only the surrounding 25 songs at most
       prev = @song_names[-12..-1]
@@ -201,6 +208,7 @@ class MusicPlayer
   def user_input
     @run = true
     neg = 1
+
     @user_input = Thread.new do
       loop do
         input = STDIN.getch
@@ -209,23 +217,32 @@ class MusicPlayer
           input << STDIN.read_nonblock(2) rescue nil
         end
 
+		# TODO : figure out why sleep isn't killed after q or r in list mode
         case input
         when ' '
-          pause_song
+          pause_song unless @options[:list]
         when '-'
           neg *= -1
         when "\e[B", "\e[C", 'n', '1'
           next_song
         when "\e[A", "\e[D", 'p'
           prev_song
-        when 'r'
-          jumpSong 0
+        when 'r', '0', "\r"
+          if @options[:list] # choose directory and restart script with new selection
+            @run = false
+            kill_song
+            new_name = sanitize_filename(@song_names[0].strip)
+            system("music -n#{new_name}#{@options[:rand] ? ' -r' : ''}")
+            abort
+          else
+            jumpSong 0
+          end
         when 'h'
           toggle_help
         when 'q'
           @run = false
           pause_song if @toggle_pause == 1
-          system("kill #{`pidof play`}")
+          kill_song
           system('clear')
           system("printf '\u001B[?25h'") # show cursor
           Thread.exit
@@ -242,15 +259,22 @@ class MusicPlayer
     @song_names.rotate! n
   end
 
+  def kill_song
+  	if @options[:list]
+	  system("kill #{`pidof sleep`.chomp} > /dev/null")
+	else
+	  system("kill #{`pidof play`.chomp} > /dev/null")
+    end
+    @current_song.kill
+  end
+
   def next_song
-  	@current_song.kill
-  	system("kill #{`pidof play`.chomp} > /dev/null")
+  	kill_song
   end
 
   def prev_song
     rotate_songs -2
-    @current_song.kill
-    system("kill #{`pidof play`.chomp} > /dev/null")
+    next_song
   end
 
   def jumpSong x
@@ -275,4 +299,4 @@ class MusicPlayer
   end
 end
 
-MusicPlayer.new
+MusicPlayer.new false
