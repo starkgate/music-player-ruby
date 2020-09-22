@@ -1,28 +1,18 @@
 #!/usr/bin/ruby
 
-# http://beets.readthedocs.io/en/v1.4.6/plugins/play.html
-# http://beets.readthedocs.io/en/v1.4.6/plugins/lyrics.html
-# http://beets.readthedocs.io/en/v1.4.6/plugins/chroma.html
-# http://docs.puddletag.net/download.html
-
-# possibly best https://github.com/spotify/echoprint-codegen
-
 require 'optparse'
 require 'io/console'
 require 'thread'
 
 Thread.report_on_exception = false
 
-@@size_x = 80
-@@size_y = 39 # define terminal size (rows, columns)
+$size_x = 80
+$size_y = 39 # define terminal size (rows, columns)
 
-@@music_dir = 'Whatever you want'
-@@exclusions = ['$RECYCLE.BIN', 'System Volume Information']
-              .map { |e| " -not \\( -path '#{@@music_dir + '/' + e}' -prune \\)" }.join # format for find cmd
-@@music_file_extension = "-type f \\( -iname '*.mp3' -o -iname '*.flac' \\)"
+$music_file_extension = "-type f \\( -iname '*.mp3' -o -iname '*.flac' \\)"
 
-@@text_help = "\"\n\r\t(h) This help\n\r\t( ) Pause\n\r\t(p) Previous song\n\r\t(r) Restart song\n\r\t(n) Next song\n\r\t[0-9] Jump x songs\n\r\t(-) Toggle jump direction\n\r\t(q) Exit program\n\r\""
-@@text_blank = "\"#{(' ' * @@size_x + "\n\r") * @@text_help.count("\n")}\""
+$text_help = "\n\r\t(h) This help\n\r\t( ) Pause\n\r\t(p) Previous song\n\r\t(r) Restart song\n\r\t(n) Next song\n\r\t[0-9] Jump x songs\n\r\t(-) Toggle jump direction\n\r\t(q) Exit program\n\r"
+$text_blank = "#{(' ' * $size_x + "\n\r") * $text_help.count("\n")}"
 
 class MusicPlayer
   def initialize
@@ -33,8 +23,8 @@ class MusicPlayer
     @queue_length = 0
     get_options
 
-    Dir.chdir @@music_dir
-    terminal_size(@@size_x, @@size_y)
+    Dir.chdir @options[:path]
+    terminal_size($size_x, $size_y)
     clear_terminal
     hide_cursor
 
@@ -50,16 +40,23 @@ class MusicPlayer
   end
 
   def get_options
-    @options = { name: '', type: 'd', rand: false, saga: false, list: false }
+    # default values for the options
+    @options = { path: "#{ENV['HOME']}/Music", name: '', type: 'd', rand: false, list: false }
     OptionParser.new do |opts|
       begin
         opts.banner = 'Usage: music [@options]'
 
-        opts.on('-nNAME', '--name NAME', 'Search for keywords') do |name|
-          @options[:name] = name
+        opts.on('-pPATH', '--path PATH', 'Path for music library') do |path|
+          @options[:path] = path
         end
 
-        opts.on('-f', '--file', 'Search for files (default folders)') do
+        opts.on('--folder NAME', 'Search for folders matching NAME') do |name|
+          @options[:name] = name
+          @options[:type] = 'd'
+        end
+
+        opts.on('--file NAME', 'Search for files matching NAME') do
+          @options[:name] = name
           @options[:type] = 'f'
         end
 
@@ -67,7 +64,7 @@ class MusicPlayer
           @options[:rand] = true
         end
 
-        opts.on('-l', '--list', 'Only lists corresponding files') do
+        opts.on('-l', '--list', 'Don\'t play anything, only list songs') do
           @options[:list] = true
         end
 
@@ -83,7 +80,7 @@ class MusicPlayer
   end
 
   def search_songs
-    cmd = "find '#{@@music_dir}' #{@@exclusions}"
+    cmd = "find '#{@options[:path]}'"
 
     if @options[:type] == 'd' # we are in folder mode
       # find the first folder whose name match @options[:name]
@@ -96,16 +93,16 @@ class MusicPlayer
       end
 
       if @options[:list] # we are in list mode
-        cmd = "find #{dir} -maxdepth 1 #{@@exclusions} -type d" # list all the subfolders in the found folder
+        cmd = "find #{dir} -maxdepth 1 -type d" # list all the subfolders in the found folder
       else
-        cmd = "find #{dir} #{@@exclusions} #{@@music_file_extension}" # play all the songs in the found folder
+        cmd = "find #{dir} #{$music_file_extension}" # play all the songs in the found folder
       end
     else # we are in file mode
       # find all the songs whose name match @options[:name]
-      cmd += " #{@@music_file_extension} -a -iname '*#{@options[:name].tr(' ', '*')}*'"
+      cmd += " #{$music_file_extension} -a -iname '*#{@options[:name].tr(' ', '*')}*'"
     end
 
-    @songs = `#{cmd}`.split('\n') # if list, display directories
+    @songs = `#{cmd}`.split("\n") # if list, display directories
     if @songs.empty?
       puts '[MUSIC][SEARCH] Nothing found, try searching for something else'
       abort
@@ -118,18 +115,17 @@ class MusicPlayer
 
   def format_songs
     @songs.shuffle! if @options[:rand]
-    @song_names = @songs.map { |path| "\t#{sanitize_filename(path)}"[0..@@size_x - 10].ljust(@@size_x - 2) + "\r" } # adjust song names for terminal size
+    @song_names = @songs.map { |path| "\t#{sanitize_filename(path)}"[0..$size_x - 10].ljust($size_x - 2) + "\r" } # adjust song names for terminal size
   end
 
   def sanitize_filename(path)
     path.match /^.*[\\|\/](.*)$/
-    name = $2
-    name.gsub!(/\W/, '_')
+    name = $1
   end
 
   def print_songs
     while @run
-      string = "\"[MUSIC][LIST] Press h to see the keyboard shortcuts\n\r\n\r\n\r"
+      string = "[MUSIC][LIST] Press h to see the keyboard shortcuts\n\r\n\r\n\r"
 
       # print only the surrounding 25 songs at most
       prev = @song_names[-12..-1]
@@ -149,17 +145,17 @@ class MusicPlayer
   end
 
   def play_songs
-    offset = @@size_x - 5
+    offset = $size_x - 5
     while @run
-      string = "\"[MUSIC][PLAY] Press h to see the keyboard shortcuts\n\r"
+      string = "[MUSIC][PLAY] Press h to see the keyboard shortcuts\n\r"
       song_length = `soxi -d "#{@songs[0]}"`[3..-5].chomp
-      string += "Playing #{@song_names[0].strip[0..@@size_x - 37]} (#{song_length}) of #{@queue_length} songs".ljust(offset) + "\n\r\n\r\n\r"
+      string += "Playing #{@song_names[0].strip[0..$size_x - 37]} (#{song_length}) of #{@queue_length} songs".ljust(offset) + "\n\r\n\r\n\r"
 
       # print only the surrounding 25 songs at most
       prev = @song_names[-12..-1]
       string += prev.join unless prev.nil?
       string += "[PLAY]#{@song_names[0]}"
-      string += @song_names[1..12].join + '"'
+      string += @song_names[1..12].join
       cursor_to_top
       printf string
 
@@ -257,9 +253,9 @@ class MusicPlayer
   def toggle_help
     save_cursor_pos
     if @toggle_help == 1
-      printf @@text_help
+      printf $text_help
     else
-      printf @@text_blank
+      printf $text_blank
     end
     restore_cursor_pos
     @toggle_help ^= 1
@@ -278,19 +274,19 @@ class MusicPlayer
   end
 
   def cursor_to_top
-    print "\033[;H" # place cursor at top
+    print "\e[H" # place cursor at top
   end
 
   def save_cursor_pos
-    print "\033[s"
+    print "\e[s"
   end
 
   def restore_cursor_pos
-    print "\033[u"
+    print "\e[u"
   end
 
   def terminal_size(x,y)
-    system("printf '\e[8;#{x};#{y}t'") # set terminal size
+    system("printf '\e[8;#{$size_y};#{$size_x};t'") # set terminal size
   end
 end
 
