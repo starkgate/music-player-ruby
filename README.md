@@ -7,7 +7,7 @@ CLI-only Ruby script to quickly create and run a playlist. I couldn't find somet
 
 **Requirements**
 
-- Ruby 2.4+ on either Linux or Windows.
+- Ruby 2.7+ on either Linux or Windows.
 - sox and libraries to read the audio files : `sudo apt install sox libsox-fmt-mp3`
 
 **Usage**
@@ -15,16 +15,18 @@ CLI-only Ruby script to quickly create and run a playlist. I couldn't find somet
 First open the script file and edit the music_dir variable to point to your own music's path. Then run the script itself with `ruby music.rb`. Or put it in your `/usr/bin` folder and just type `music`. By default this will start playing your entire library in a playlist :). If you want more options (why ?), see below !
 
 ```
-Usage: music [options]
-    -n, --name NAME                  Search for keywords
-    -f, --file                       Search for files (default folders)
+Usage: music [@options]
+    -p, --path PATH                  Path for music library
+        --folder NAME                Search for folders matching NAME
+        --file NAME                  Search for files matching NAME
     -r, --rand                       Shuffle the playlist
+    -l, --list                       Don't play anything, only list songs
     -h, --help                       Prints this help
 ```
 
-Example: `music -nChopin -r`
+Example: `music --folder Symphony -r`
 
-Will find the first folder with the word "Chopin" in it (not case sensitive), and will start playing all the music files within (MP3, FLAC) in a random order.
+Will find the first folder with the word "Symphony" in it (not case sensitive), and will start playing all the music files within (MP3, FLAC) in a random order.
 
 **Features**
 
